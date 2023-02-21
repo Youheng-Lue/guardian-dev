@@ -100,23 +100,24 @@ class RegisterEnteringValidation(GuardianSimProcedure):
     def run(self, **kwargs):
         log.debug("######### REGISTER ENTERING VALIDATION ###############")
         assert self.state.has_plugin("enclave")
-        if self.state.enclave.control_state != ControlState.Entering:
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         self.state.enclave.control_state,
-                         "EnteringSanitisation")
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
-        else:
-            assert "no_sanitisation" in kwargs
-            if not kwargs["no_sanitisation"]:
-                violation = Validation.entering(self.state)
-                if violation is not None:
-                    self.state.enclave.set_violation(violation)
-                    self.state.enclave.found_violation = True
-        self.state.enclave.entry_sanitisation_complete = True
-        self.successors.add_successor(self.state, self.state.addr + 0,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        if self.violation_check:
+            if self.state.enclave.control_state != ControlState.Entering:
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            self.state.enclave.control_state,
+                            "EnteringSanitisation")
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
+            else:
+                assert "no_sanitisation" in kwargs
+                if not kwargs["no_sanitisation"]:
+                    violation = Validation.entering(self.state)
+                    if violation is not None:
+                        self.state.enclave.set_violation(violation)
+                        self.state.enclave.found_violation = True
+            self.state.enclave.entry_sanitisation_complete = True
+            self.successors.add_successor(self.state, self.state.addr + 0,
+                                        self.state.solver.true, 'Ijk_NoHook')
 
 
 class TransitionToTrusted(GuardianSimProcedure):
@@ -200,11 +201,12 @@ class TransitionToOcall(GuardianSimProcedure):
         log.debug(hex(self.state.addr))
         assert self.state.has_plugin("enclave")
         if self.state.enclave.control_state != ControlState.Trusted:
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         self.state.enclave.control_state, ControlState.Ocall)
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
+            if self.violation_check:
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            self.state.enclave.control_state, ControlState.Ocall)
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
         else:
             self.state.enclave.ooe_rights = Rights.ReadWrite
             self.state.enclave.control_state = ControlState.Ocall
@@ -217,11 +219,11 @@ class OcallAbstraction(GuardianSimProcedure):
         log.debug("######### OCALL ABSTRACTION ###############")
         assert self.state.has_plugin("enclave")
         if self.state.enclave.control_state != ControlState.Ocall:
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         self.state.enclave.control_state, "OcallAbstraction")
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            self.state.enclave.control_state, "OcallAbstraction")
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
         return self.state.solver.Unconstrained("ocall_ret",
                                                self.state.arch.bits)
 

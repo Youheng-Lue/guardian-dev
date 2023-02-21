@@ -19,13 +19,18 @@ import angr
 import sys
 import pyvex
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
-from .simulation_procedures import malloc, Empty, TransitionToTrusted, TransitionToExiting, TransitionToOcall, TransitionToTrusted, OcallAbstraction, TransitionToExited, RegisterEnteringValidation, SimEnclu, Nop, Rdrand, UD2
+from .simulation_procedures import malloc, Empty, TransitionToExiting, TransitionToOcall, TransitionToTrusted, OcallAbstraction, TransitionToExited, RegisterEnteringValidation, SimEnclu, Nop, Rdrand, UD2
 from .controlstate import ControlState
 
 log = logging.getLogger(__name__)
 
 
 class Hooker:
+    def __init__(self, violation_check=True) -> None:
+        """Initialize whether to use violation_checks"""
+        self.violation_check = violation_check
+        
+
     def setup(self, proj, simgr, ecalls, ocalls, exited_addr, enter_addr,
               old_sdk):
         self.instruction_hooker(proj,
@@ -63,25 +68,25 @@ class Hooker:
         if ecalls is not None:
             for (ecall_index, ecall_name, ecall_addr, ecall_rets) in ecalls:
                 for (call_addr, ret_addr) in ecall_rets:
-                    proj.hook(call_addr, hook=TransitionToTrusted())
-                    proj.hook(ret_addr, hook=TransitionToExiting())
+                    proj.hook(call_addr, hook=TransitionToTrusted(violation_check=self.violation_check))
+                    proj.hook(ret_addr, hook=TransitionToExiting(violation_check=self.violation_check))
         if ocalls is not None:
             for (ocall_name, ocall_addr, sgx_ocalls, ocall_rets) in ocalls:
-                proj.hook(ocall_addr, hook=TransitionToOcall())
+                proj.hook(ocall_addr, hook=TransitionToOcall(violation_check=self.violation_check))
                 for ret_addr in ocall_rets:
-                    proj.hook(ret_addr, hook=TransitionToTrusted())
+                    proj.hook(ret_addr, hook=TransitionToTrusted(violation_check=self.violation_check))
 
         sgx_ocall_addr = proj.loader.find_symbol("sgx_ocall").rebased_addr
-        proj.hook(sgx_ocall_addr, hook=OcallAbstraction())
+        proj.hook(sgx_ocall_addr, hook=OcallAbstraction(violation_check=self.violation_check))
         proj.hook(exit_addr, hook=TransitionToExited(no_sanitisation=old_sdk))
         proj.hook(
             enter_addr,
-            hook=RegisterEnteringValidation(no_sanitisation=old_sdk))
+            hook=RegisterEnteringValidation(no_sanitisation=old_sdk, violation_check=self.violation_check))
 
     def instruction_replacement(self, exit_addr):
         def replace(capstone_instruction) -> angr.SimProcedure:
             if capstone_instruction.mnemonic == "enclu" and capstone_instruction.address != exit_addr:
-                return SimEnclu(violation_check=True)
+                return SimEnclu()
             elif capstone_instruction.mnemonic == "xsave64":
                 return Nop(bytes_to_skip=4)
             elif capstone_instruction.mnemonic == "xrstor64":
