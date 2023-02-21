@@ -32,15 +32,17 @@ class TraceElement:
 
 
 class EnclaveState(angr.SimStatePlugin):
-    def __init__(self,
-                 proj=None,
-                 control_state=ControlState.Entering,
-                 ooe_rights=Rights.ReadWrite,
-                 violation=None,
-                 found_violation=False,
-                 jump_trace=None,
-                 call_stack=None,
-                 entry_sanitisation_complete=False):
+    def __init__(
+        self,
+        proj=None,
+        control_state=ControlState.Entering,
+        ooe_rights=Rights.ReadWrite,
+        violation=None,
+        found_violation=False,
+        jump_trace=None,
+        call_stack=None,
+        entry_sanitisation_complete=False,
+    ):
         super().__init__()
         self.found_violation = found_violation
         self.violation = violation
@@ -56,11 +58,11 @@ class EnclaveState(angr.SimStatePlugin):
             control_state=self.control_state,
             ooe_rights=self.ooe_rights,
             found_violation=self.found_violation,
-            violation=deepcopy(self.violation)
-            if self.violation is not None else None,
+            violation=deepcopy(self.violation) if self.violation is not None else None,
             jump_trace=self.jump_trace.copy(),
             call_stack=self.call_stack.copy(),
-            entry_sanitisation_complete=self.entry_sanitisation_complete)
+            entry_sanitisation_complete=self.entry_sanitisation_complete,
+        )
 
     def init_trace_and_stack(self):
         self.jump_trace = [TraceElement(self.state.project, self.state.addr)]
@@ -82,5 +84,6 @@ class EnclaveState(angr.SimStatePlugin):
 
     def set_violation(self, violation):
         self.violation = violation
-        log.warning("   Violation @ {} : {}".format(
-            hex(self.state.addr), self.violation))
+        log.warning(
+            "   Violation @ {} : {}".format(hex(self.state.addr), self.violation)
+        )

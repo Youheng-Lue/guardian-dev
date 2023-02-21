@@ -42,7 +42,8 @@ class Heuristic:
         enclave_entry_addr = enclave_entry_symb.rebased_addr
         assert do_ocall_addr > enclave_entry_addr
         symb_bytes = proj.loader.memory.load(
-            enclave_entry_addr, do_ocall_addr - enclave_entry_addr)
+            enclave_entry_addr, do_ocall_addr - enclave_entry_addr
+        )
         exit_addr = None
         md = Cs(CS_ARCH_X86, CS_MODE_64)
         for i in md.disasm(symb_bytes, enclave_entry_addr):
@@ -54,12 +55,12 @@ class Heuristic:
     def find_enter(proj):
         enclave_entry_symb = proj.loader.find_symbol("enclave_entry")
         do_ocall_addr = proj.loader.find_symbol("do_ocall").rebased_addr
-        enter_enclave_addr = proj.loader.find_symbol(
-            "enter_enclave").rebased_addr
+        enter_enclave_addr = proj.loader.find_symbol("enter_enclave").rebased_addr
         enclave_entry_addr = enclave_entry_symb.rebased_addr
         assert do_ocall_addr > enclave_entry_addr
         symb_bytes = proj.loader.memory.load(
-            enclave_entry_addr, do_ocall_addr - enclave_entry_addr)
+            enclave_entry_addr, do_ocall_addr - enclave_entry_addr
+        )
         enter_addr = None
         md = Cs(CS_ARCH_X86, CS_MODE_64)
         for i in md.disasm(symb_bytes, enclave_entry_addr):
@@ -81,8 +82,7 @@ class Heuristic:
                 ocall_rets = []
                 sgx_ocalls = []
                 for i in md.disasm(symb_bytes, symb_addr):
-                    if i.mnemonic == "call" and i.op_str == hex(
-                            ocalloc_address):
+                    if i.mnemonic == "call" and i.op_str == hex(ocalloc_address):
                         sgx_ocalls.append(i.address)
                 if len(sgx_ocalls) > 0:
                     for i in md.disasm(symb_bytes, symb_addr):
@@ -90,8 +90,7 @@ class Heuristic:
                             ocall_rets.append(i.address)
 
                     assert len(ocall_rets) > 0
-                    ocalls.append((symb.name, symb_addr, sgx_ocalls,
-                                   ocall_rets))
+                    ocalls.append((symb.name, symb_addr, sgx_ocalls, ocall_rets))
 
         return ocalls
 
@@ -132,24 +131,41 @@ class Heuristic:
 
     def find_ecalls(proj):
         ecall_table = proj.loader.find_symbol("g_ecall_table")
-        ecall_table_bytes = proj.loader.memory.load(ecall_table.rebased_addr,
-                                                    ecall_table.size)
+        ecall_table_bytes = proj.loader.memory.load(
+            ecall_table.rebased_addr, ecall_table.size
+        )
         num_ecalls = int.from_bytes(ecall_table_bytes[0:8], "little")
         md = Cs(CS_ARCH_X86, CS_MODE_64)
         ecalls = []
-        non_ecalls = {hex(proj.loader.find_symbol(symb_name).rebased_addr) for symb_name in \
-            ["dlmalloc", "dlfree", "memcpy", "calloc", "memset", "memcpy_s", "memset_s", "sgx_is_within_enclave", "sgx_is_outside_enclave", "strlen", "abort"] if proj.loader.find_symbol(symb_name) is not None}
+        non_ecalls = {
+            hex(proj.loader.find_symbol(symb_name).rebased_addr)
+            for symb_name in [
+                "dlmalloc",
+                "dlfree",
+                "memcpy",
+                "calloc",
+                "memset",
+                "memcpy_s",
+                "memset_s",
+                "sgx_is_within_enclave",
+                "sgx_is_outside_enclave",
+                "strlen",
+                "abort",
+            ]
+            if proj.loader.find_symbol(symb_name) is not None
+        }
         for index in range(num_ecalls):
             ecall_info_index = 8 + index * 16
             ecall_addr = int.from_bytes(
-                ecall_table_bytes[ecall_info_index:ecall_info_index + 8],
-                "little")
+                ecall_table_bytes[ecall_info_index : ecall_info_index + 8], "little"
+            )
             ecall_is_priv = int.from_bytes(
-                ecall_table_bytes[ecall_info_index + 8:ecall_info_index + 9],
-                "little")
+                ecall_table_bytes[ecall_info_index + 8 : ecall_info_index + 9], "little"
+            )
             ecall_is_switchless = int.from_bytes(
-                ecall_table_bytes[ecall_info_index + 9:ecall_info_index + 10],
-                "little")
+                ecall_table_bytes[ecall_info_index + 9 : ecall_info_index + 10],
+                "little",
+            )
 
             ecall_symb = proj.loader.find_symbol(ecall_addr)
             symb_bytes = proj.loader.memory.load(ecall_addr, ecall_symb.size)
@@ -166,7 +182,7 @@ class Heuristic:
     def find_ecalls_parameters(proj, ecalls):
         md = Cs(CS_ARCH_X86, CS_MODE_64)
         ecalls_info = []
-        for (ecall_index, ecall_name, ecall_addr, ecall_rets) in ecalls:
+        for ecall_index, ecall_name, ecall_addr, ecall_rets in ecalls:
             symb = proj.loader.find_symbol(ecall_addr)
             symb_bytes = proj.loader.memory.load(ecall_addr, symb.size)
 
@@ -189,8 +205,9 @@ class Heuristic:
                         elif is_var_access(rhs):
                             ms_vars[get_offset(rhs)] = get_size(rhs)
 
-            ecalls_info.append((ecall_index, ecall_name, ecall_addr,
-                                ecall_rets, ms_size, ms_vars))
+            ecalls_info.append(
+                (ecall_index, ecall_name, ecall_addr, ecall_rets, ms_size, ms_vars)
+            )
 
         return ecalls_info
 
@@ -199,7 +216,7 @@ class Heuristic:
             return "ptr [rax" in op_str or "ptr [rbx" in op_str
 
         def get_size(op_str):
-            size_str = op_str[:op_str.find("[")].strip()
+            size_str = op_str[: op_str.find("[")].strip()
             if size_str == "byte ptr":
                 return 1
             elif size_str == "word ptr":
@@ -210,7 +227,7 @@ class Heuristic:
                 return 8
 
         def get_offset(op_str):
-            addr_str = op_str[op_str.find("[") + 1:op_str.find("]")]
+            addr_str = op_str[op_str.find("[") + 1 : op_str.find("]")]
             try:
                 _, offset_str = addr_str.split("+")
             except:
@@ -239,10 +256,12 @@ class Report:
         log.addHandler(stream_handler)
         plugins_log.addHandler(stream_handler)
 
-        log.info("There are {} ecalls to analyse.\n".format(
-            len(self.guardian_project.ecalls)))
-        for (ecall_index, ecall_name, ecall_addr,
-             _) in guardian_project.ecalls:
+        log.info(
+            "There are {} ecalls to analyse.\n".format(
+                len(self.guardian_project.ecalls)
+            )
+        )
+        for ecall_index, ecall_name, ecall_addr, _ in guardian_project.ecalls:
             self.analyse_ecall(ecall_index, ecall_name, ecall_addr)
 
         log_contents = stream_object.getvalue()
@@ -256,21 +275,19 @@ class Report:
     def save(self, file):
         file.write(self.report)
 
-    def analyse_ecall(self,
-                      ecall_index,
-                      ecall_name=None,
-                      ecall_addr=None,
-                      debug=False):
+    def analyse_ecall(self, ecall_index, ecall_name=None, ecall_addr=None, debug=False):
         assert self.timeout >= 0
 
         if ecall_addr == None or ecall_name == None:
-            [(_, ecall_name, ecall_addr,
-              _)] = [e for e in ecalls if e[0] == ecall_index]
+            [(_, ecall_name, ecall_addr, _)] = [
+                e for e in ecalls if e[0] == ecall_index
+            ]
 
         # Instead of doing a deep copy, we will create a minimal guardian project.
         # It is customary but not required to place all import statements at the beginning of a module (Python documentation 6.1)
         # We violate this custom here...
         from .project import Project
+
         proj = angr.Project(self.guardian_project.angr_project.filename)
         guard = Project(
             proj,
@@ -278,7 +295,8 @@ class Report:
             old_sdk=self.guardian_project.old_sdk,
             teaclave=self.guardian_project.teaclave,
             ecalls=self.guardian_project.ecalls,
-            ocalls=self.guardian_project.ocalls)
+            ocalls=self.guardian_project.ocalls,
+        )
         guard.set_target_ecall(ecall_index)
 
         log.info("Analysing ecall: {} {}...".format(ecall_index, ecall_name))
@@ -318,5 +336,6 @@ class Report:
                 if te.address == ecall_addr:
                     reached_ecall.append(simgr.violation[exit_i])
                     break
-        log.info("  No. of exited states reaching ecall: {}.\n".format(
-            len(reached_ecall)))
+        log.info(
+            "  No. of exited states reaching ecall: {}.\n".format(len(reached_ecall))
+        )

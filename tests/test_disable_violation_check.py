@@ -14,30 +14,24 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-"""
-This test is used to determine whether we have successfully disabled the violation check.
-
-"""
-# angr
 import angr
-import claripy
-# guardian
 import guardian
-# pytest
 import pytest
-#other
-from collections import Counter
 
 
 class Project:
-    def setup(self,
-              path,
-              heap_size=None,
-              stack_size=None,
-              ecalls=None,
-              ocalls=None,
-              exit_addr=None,
-              enter_addr=None):
+    """A class to setup a project and simulation manager for testing."""
+
+    def setup(
+        self,
+        path,
+        heap_size=None,
+        stack_size=None,
+        ecalls=None,
+        ocalls=None,
+        exit_addr=None,
+        enter_addr=None,
+    ):
         self.path = path
         self.proj = angr.Project(self.path)
         self.heap_size = heap_size
@@ -47,8 +41,14 @@ class Project:
         self.exit_addr = exit_addr
         self.enter_addr = enter_addr
         self.guardian_proj = guardian.Project(
-            self.proj, self.heap_size, self.stack_size, self.ecalls,
-            self.ocalls, self.exit_addr, self.enter_addr)
+            self.proj,
+            self.heap_size,
+            self.stack_size,
+            self.ecalls,
+            self.ocalls,
+            self.exit_addr,
+            self.enter_addr,
+        )
         self.guardian_proj.set_target_ecall(0x0)
         self.simgr = self.guardian_proj.simgr
         return self.proj, self.simgr
@@ -65,21 +65,19 @@ def test_all_violations(setup):
 
     assert len(simgr.violation) == 0
 
+
 def test_entry_sanitisation(setup):
     proj, simgr = setup("tests/entry_sanitisation/enclave.so")
-    proj.hook(
-        0x40685e, hook=guardian.simulation_procedures.Nop(bytes_to_skip=31))
-    proj.hook(
-        0x4068ac, hook=guardian.simulation_procedures.Nop(bytes_to_skip=18))
+    proj.hook(0x40685E, hook=guardian.simulation_procedures.Nop(bytes_to_skip=31))
+    proj.hook(0x4068AC, hook=guardian.simulation_procedures.Nop(bytes_to_skip=18))
     simgr.explore()
-
 
     assert len(simgr.violation) == 0
 
+
 def test_exit_sanitisation(setup):
     proj, simgr = setup("tests/exit_sanitisation/enclave.so")
-    proj.hook(
-        0x406924, hook=guardian.simulation_procedures.Nop(bytes_to_skip=34))
+    proj.hook(0x406924, hook=guardian.simulation_procedures.Nop(bytes_to_skip=34))
     simgr.explore()
 
     assert len(simgr.violation) == 0
@@ -103,51 +101,44 @@ def test_out_of_read(setup):
     proj, simgr = setup("tests/out_of_read/enclave.so")
     simgr.explore()
 
-
     assert len(simgr.violation) == 0
+
 
 def test_out_of_write(setup):
     proj, simgr = setup("tests/out_of_write/enclave.so")
     simgr.explore()
 
-
     assert len(simgr.violation) == 0
+
 
 def test_symbolic_jump(setup):
     proj, simgr = setup("tests/symbolic_jump/enclave.so")
     simgr.explore()
 
-
     assert len(simgr.violation) == 0
 
-def test_symbolic_jump(setup):
-    proj, simgr = setup("tests/symbolic_read/enclave.so")
-    simgr.explore()
-
-
-    assert len(simgr.violation) == 0
 
 def test_symbolic_write(setup):
     proj, simgr = setup("tests/symbolic_write/enclave.so")
     simgr.explore()
 
-
     assert len(simgr.violation) == 0
+
 
 def test_transition(setup):
     proj = angr.Project("tests/transition/enclave.so")
-    ecalls = [(ind, name, add, [(io[0][0], 0)])
-              for (ind, name, add,
-                   io) in guardian.tools.Heuristic.find_ecalls(proj)]
+    ecalls = [
+        (ind, name, add, [(io[0][0], 0)])
+        for (ind, name, add, io) in guardian.tools.Heuristic.find_ecalls(proj)
+    ]
     proj, simgr = setup("tests/transition/enclave.so", ecalls=ecalls)
     simgr.explore()
 
-
     assert len(simgr.violation) == 0
+
 
 def test_transition_two(setup):
     proj, simgr = setup("tests/transition2/enclave.so", enter_addr=0x0)
     simgr.explore()
-
 
     assert len(simgr.violation) == 0

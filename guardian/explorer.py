@@ -39,20 +39,23 @@ class EnclaveExploration(angr.exploration_techniques.ExplorationTechnique):
 
         if None in simgr_stash_list:
             simgr_stash_list[ControlStateName.KilledStashName] = [
-                v for v in simgr_stash_list[None]
+                v
+                for v in simgr_stash_list[None]
                 if v.enclave.found_violation and v.enclave.violation is None
             ]
             simgr_stash_list[ControlStateName.ViolationStashName] = [
-                v for v in simgr_stash_list[None] if v.enclave.found_violation
-                and v.enclave.violation is not None
+                v
+                for v in simgr_stash_list[None]
+                if v.enclave.found_violation and v.enclave.violation is not None
             ]
             simgr_stash_list[None] = [
-                v for v in simgr_stash_list[None]
-                if not v.enclave.found_violation
+                v for v in simgr_stash_list[None] if not v.enclave.found_violation
             ]
 
         return simgr_stash_list
 
     def complete(self, simgr):
-        return len(simgr.stashes["active"]) > 99 or len(
-            simgr.stashes[ControlStateName.ViolationStashName]) > 19
+        return (
+            len(simgr.stashes["active"]) > 99
+            or len(simgr.stashes[ControlStateName.ViolationStashName]) > 19
+        )

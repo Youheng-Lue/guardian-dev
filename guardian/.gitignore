@@ -1,0 +1,4 @@
+# Ignore all testing files
+test*
+# Ignore txt files
+*.txt

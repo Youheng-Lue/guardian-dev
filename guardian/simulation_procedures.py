@@ -31,13 +31,19 @@ class SimEnclu(angr.SimProcedure):
         if self.state.solver.eval(self.state.regs.eax == 0x0):
             log.debug("EREPORT")
             self.successors.add_successor(
-                self.state, self.state.addr + enclu_length_in_bytes,
-                self.state.solver.true, 'Ijk_Boring')
+                self.state,
+                self.state.addr + enclu_length_in_bytes,
+                self.state.solver.true,
+                "Ijk_Boring",
+            )
         elif self.state.solver.eval(self.state.regs.eax == 0x1):
             log.debug("EGETKEY")
             self.successors.add_successor(
-                self.state, self.state.addr + enclu_length_in_bytes,
-                self.state.solver.true, 'Ijk_Boring')
+                self.state,
+                self.state.addr + enclu_length_in_bytes,
+                self.state.solver.true,
+                "Ijk_Boring",
+            )
         elif self.state.solver.eval(self.state.regs.eax == 0x2):
             log.critical("Unexpected EENTER")
             self.exit(1)
@@ -54,8 +60,11 @@ class Nop(angr.SimProcedure):
 
     def run(self, **kwargs):
         self.successors.add_successor(
-            self.state, self.state.addr + kwargs["bytes_to_skip"],
-            self.state.solver.true, 'Ijk_Boring')
+            self.state,
+            self.state.addr + kwargs["bytes_to_skip"],
+            self.state.solver.true,
+            "Ijk_Boring",
+        )
 
 
 class Empty(angr.SimProcedure):
@@ -69,8 +78,9 @@ class UD2(angr.SimProcedure):
     def run(self, **kwargs):
         log.debug("UD2 detected! Aborting this branch!")
         log.debug(hex(self.state.addr))
-        self.successors.add_successor(self.state, self.state.addr,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        self.successors.add_successor(
+            self.state, self.state.addr, self.state.solver.true, "Ijk_NoHook"
+        )
         self.exit(2)
 
 
@@ -79,8 +89,9 @@ class Rdrand(angr.SimProcedure):
 
     def run(self, **kwargs):
         self.state.regs.flags = 1
-        self.successors.add_successor(self.state, self.state.addr + 3,
-                                      self.state.solver.true, 'Ijk_Boring')
+        self.successors.add_successor(
+            self.state, self.state.addr + 3, self.state.solver.true, "Ijk_Boring"
+        )
 
 
 class RegisterEnteringValidation(angr.SimProcedure):
@@ -90,8 +101,9 @@ class RegisterEnteringValidation(angr.SimProcedure):
         log.debug("######### REGISTER ENTERING VALIDATION ###############")
         assert self.state.has_plugin("enclave")
         self.state.enclave.entry_sanitisation_complete = True
-        self.successors.add_successor(self.state, self.state.addr + 0,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        self.successors.add_successor(
+            self.state, self.state.addr + 0, self.state.solver.true, "Ijk_NoHook"
+        )
 
 
 class TransitionToTrusted(angr.SimProcedure):
@@ -102,8 +114,9 @@ class TransitionToTrusted(angr.SimProcedure):
         assert self.state.has_plugin("enclave")
         self.state.enclave.ooe_rights = Rights.NoReadOrWrite
         self.state.enclave.control_state = ControlState.Trusted
-        self.successors.add_successor(self.state, self.state.addr + 0,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        self.successors.add_successor(
+            self.state, self.state.addr + 0, self.state.solver.true, "Ijk_NoHook"
+        )
 
 
 class TransitionToExiting(angr.SimProcedure):
@@ -114,8 +127,9 @@ class TransitionToExiting(angr.SimProcedure):
         assert self.state.has_plugin("enclave")
         self.state.enclave.ooe_rights = Rights.Write
         self.state.enclave.control_state = ControlState.Exiting
-        self.successors.add_successor(self.state, self.state.addr + 0,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        self.successors.add_successor(
+            self.state, self.state.addr + 0, self.state.solver.true, "Ijk_NoHook"
+        )
 
 
 class TransitionToExited(angr.SimProcedure):
@@ -125,8 +139,9 @@ class TransitionToExited(angr.SimProcedure):
         log.debug("######### EXITED ###############")
         assert self.state.has_plugin("enclave")
         self.state.enclave.control_state = ControlState.Exited
-        self.successors.add_successor(self.state, self.state.addr + 0,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        self.successors.add_successor(
+            self.state, self.state.addr + 0, self.state.solver.true, "Ijk_NoHook"
+        )
 
 
 class TransitionToOcall(angr.SimProcedure):
@@ -138,16 +153,16 @@ class TransitionToOcall(angr.SimProcedure):
         assert self.state.has_plugin("enclave")
         self.state.enclave.ooe_rights = Rights.ReadWrite
         self.state.enclave.control_state = ControlState.Ocall
-        self.successors.add_successor(self.state, self.state.addr + 0,
-                                      self.state.solver.true, 'Ijk_NoHook')
+        self.successors.add_successor(
+            self.state, self.state.addr + 0, self.state.solver.true, "Ijk_NoHook"
+        )
 
 
 class OcallAbstraction(angr.SimProcedure):
     def run(self, **kwargs):
         log.debug("######### OCALL ABSTRACTION ###############")
         assert self.state.has_plugin("enclave")
-        return self.state.solver.Unconstrained("ocall_ret",
-                                               self.state.arch.bits)
+        return self.state.solver.Unconstrained("ocall_ret", self.state.arch.bits)
 
 
 class malloc(angr.SimProcedure):
@@ -158,12 +173,12 @@ class malloc(angr.SimProcedure):
             if size > self.state.libc.max_variable_size:
                 log.warning(
                     "Allocation request of %d bytes exceeded maximum of %d bytes; allocating %d bytes",
-                    size, self.state.libc.max_variable_size,
-                    self.state.libc.max_variable_size)
+                    size,
+                    self.state.libc.max_variable_size,
+                    self.state.libc.max_variable_size,
+                )
                 size = self.state.libc.max_variable_size
                 self.state.add_constraints(sim_size == size)
         else:
             size = self.state.solver.eval(sim_size)
         return self.state.heap._malloc(sim_size)
-
-

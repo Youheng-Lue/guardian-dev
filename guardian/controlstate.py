@@ -33,7 +33,11 @@ class ControlState(Enum):
     Ocall = 6
 
     def to_stash_name(self):
-        if self == ControlState.Entering or self == ControlState.Trusted or self == ControlState.Exiting:
+        if (
+            self == ControlState.Entering
+            or self == ControlState.Trusted
+            or self == ControlState.Exiting
+        ):
             return "active"
         elif self == ControlState.Exited:
             return ControlStateName.ExitedStashName

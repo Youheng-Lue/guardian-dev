@@ -27,14 +27,27 @@ class Loggers:
         self.handler = CuteHandler()
         self.handler.setFormatter(
             logging.Formatter(
-                '%(levelname)-7s | %(asctime)-23s | %(name)-8s | %(message)s'))
+                "%(levelname)-7s | %(asctime)-23s | %(name)-8s | %(message)s"
+            )
+        )
 
         if len(logging.root.handlers) == 0:
             self.enable_root_logger()
             logging.root.setLevel(self.default_level)
 
-    IN_SCOPE = ('angr', 'claripy', 'cle', 'pyvex', 'archinfo', 'tracer',
-                'driller', 'rex', 'patcherex', 'identifier', 'guardian')
+    IN_SCOPE = (
+        "angr",
+        "claripy",
+        "cle",
+        "pyvex",
+        "archinfo",
+        "tracer",
+        "driller",
+        "rex",
+        "patcherex",
+        "identifier",
+        "guardian",
+    )
 
     def load_all_loggers(self):
         """
@@ -43,13 +56,11 @@ class Loggers:
         Adds attributes to this instance of each registered logger, replacing '.' with '_'
         """
         for name, logger in logging.Logger.manager.loggerDict.items():
-            if any(
-                    name.startswith(x + '.') or name == x
-                    for x in self.IN_SCOPE):
+            if any(name.startswith(x + ".") or name == x for x in self.IN_SCOPE):
                 self._loggers[name] = logger
 
     def __getattr__(self, k):
-        real_k = k.replace('_', '.')
+        real_k = k.replace("_", ".")
         if real_k in self._loggers:
             return self._loggers[real_k]
         else:
