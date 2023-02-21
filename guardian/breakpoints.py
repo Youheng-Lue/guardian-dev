@@ -18,30 +18,11 @@ import logging
 import angr
 import claripy
 from .plugins import TraceElement
-from .controlstate import ControlState, Rights, ControlStateName
-from .violation_type import ViolationType
-import copy
 
 log = logging.getLogger(__name__)
 
-
 class Breakpoints:
     def setup(self, proj, simgr, layout):
-
-        # Violation detection breakpoints
-        simgr.active[0].inspect.b(
-            'mem_read',
-            when=angr.BP_BEFORE,
-            action=lambda s: self.detect_read_violations(simgr, s, layout))
-        simgr.active[0].inspect.b(
-            'mem_write',
-            when=angr.BP_BEFORE,
-            action=lambda s: self.detect_write_violations(simgr, s, layout))
-        simgr.active[0].inspect.b(
-            'exit',
-            when=angr.BP_BEFORE,
-            action=lambda s: self.detect_jump_violations(simgr, s, layout))
-
         # Call stack tracking breakpoints
         simgr.active[0].inspect.b(
             'call',
@@ -87,123 +68,3 @@ class Breakpoints:
         if state.enclave.call_stack is not None and state.enclave.call_stack:
             del state.enclave.call_stack[-1]
 
-    def detect_read_violations(self, simgr, state, layout):
-        read_allowed = (state.enclave.ooe_rights == Rights.ReadWrite) or (
-            state.enclave.ooe_rights == Rights.Read)
-        addr = state.inspect.mem_read_address
-        assert state.inspect.mem_read_length is not None
-        length = state.inspect.mem_read_length
-        allowed_range_begin = layout.base_addr
-        allowed_range_end = allowed_range_begin + layout.enclave_size - length
-        violation = None
-
-        if state.solver.satisfiable(extra_constraints=[
-                claripy.Or(addr < allowed_range_begin,
-                           addr > allowed_range_end)
-        ]):
-            if not read_allowed:
-                log.warning(
-                    "\nState @{} \n!!!!!!! VIOLATION: OUT-OF-ENCLAVE READ !!!!!!!!\n  Address {}\n  constraints were {}\n"
-                    .format(hex(state.addr), addr, state.solver.constraints))
-                violation = (ViolationType.OutOfEnclaveRead,
-                             ViolationType.OutOfEnclaveRead.to_msg(),
-                             state.inspect.mem_read_address,
-                             state.inspect.mem_read_expr)
-            else:
-                state.solver.add(
-                    claripy.Or(addr < allowed_range_begin,
-                               addr > allowed_range_end))
-
-        elif not read_allowed and state.solver.symbolic(
-                addr) and not state.solver.single_valued(addr):
-            log.warning(
-                "\nState @{} \n!!!!!!! VIOLATION: SYMBOLIC READ ADDRESS !!!!!!!!\n  Address {}\n  Value {}\n  constraints were {}\n"
-                .format(
-                    hex(state.addr), addr, state.inspect.mem_read_expr,
-                    state.solver.constraints))
-            violation = (ViolationType.SymbolicRead,
-                         ViolationType.SymbolicRead.to_msg(),
-                         state.inspect.mem_read_address,
-                         state.inspect.mem_read_expr)
-
-        if violation is not None:
-            state.enclave.found_violation = True
-            state_copy = state.copy()
-            state_copy.enclave.set_violation(violation)
-            self.append_violation_state(simgr, state_copy)
-
-    def detect_write_violations(self, simgr, state, layout):
-        write_allowed = state.enclave.ooe_rights == Rights.ReadWrite or state.enclave.ooe_rights == Rights.Write
-        addr = state.inspect.mem_write_address
-        length = state.solver.eval(state.inspect.mem_write_length) if state.inspect.mem_write_length is not None \
-                else len(state.inspect.mem_write_expr) // state.arch.byte_width
-        allowed_range_begin = layout.base_addr
-        allowed_range_end = allowed_range_begin + layout.enclave_size - length
-        violation = None
-
-        if not write_allowed and state.solver.satisfiable(
-                extra_constraints=[
-                    claripy.Or(addr < allowed_range_begin,
-                               addr > allowed_range_end)
-                ]):
-            log.warning(
-                "\nState @{} \n!!!!!!! VIOLATION: OUT-OF-ENCLAVE WRITE !!!!!!!!\n  Address {}\n  Value {}\n  constraints were {}\n"
-                .format(
-                    hex(state.addr), addr, state.inspect.mem_write_expr,
-                    state.solver.constraints))
-            violation = (ViolationType.OutOfEnclaveWrite,
-                         ViolationType.OutOfEnclaveWrite.to_msg(),
-                         state.inspect.mem_write_address,
-                         state.inspect.mem_write_expr)
-
-        elif not write_allowed and state.solver.symbolic(
-                addr) and not state.solver.single_valued(addr):
-            log.warning(
-                "\nState @{} \n!!!!!!! VIOLATION: SYMBOLIC WRITE ADDRESS !!!!!!!!\n  Address {}\n  Value {}\n  constraints were {}\n"
-                .format(
-                    hex(state.addr), addr, state.inspect.mem_write_expr,
-                    state.solver.constraints))
-            violation = (ViolationType.SymbolicWrite,
-                         ViolationType.SymbolicWrite.to_msg(),
-                         state.inspect.mem_write_address,
-                         state.inspect.mem_write_expr)
-
-        if violation is not None:
-            state.enclave.found_violation = True
-            state_copy = state.copy()
-            state_copy.enclave.set_violation(violation)
-            self.append_violation_state(simgr, state_copy)
-
-    def detect_jump_violations(self, simgr, state, layout):
-        target = state.inspect.exit_target
-        if isinstance(target, angr.state_plugins.SimActionObject):
-            target = target.to_claripy()
-        allowed_range_begin = layout.base_addr
-        allowed_range_end = allowed_range_begin + layout.enclave_size - 1
-        violation = None
-
-        if state.solver.satisfiable(extra_constraints=[
-                claripy.Or(target < allowed_range_begin,
-                           target > allowed_range_end)
-        ]):
-            log.warning(
-                "\nState @{} \n!!!!!!! VIOLATION: OUT-OF-ENCLAVE JUMP !!!!!!!!\n  Target {}\n  constraints were {}\n"
-                .format(hex(state.addr), target, state.solver.constraints))
-            violation = (ViolationType.OutOfEnclaveJump,
-                         ViolationType.OutOfEnclaveJump.to_msg(), target)
-        elif state.solver.symbolic(
-                target) and not state.solver.single_valued(target):
-            log.warning(
-                "\nState @{} \n!!!!!!! VIOLATION: SYMBOLIC JUMP TARGET !!!!!!!!\n  Target {}\n  constraints were {}\n"
-                .format(hex(state.addr), target, state.solver.constraints))
-            violation = (ViolationType.SymbolicJump,
-                         ViolationType.SymbolicJump.to_msg(), target)
-
-        if violation is not None:
-            state.enclave.found_violation = True
-            state_copy = state.copy()
-            state_copy.enclave.set_violation(violation)
-            self.append_violation_state(simgr, state_copy)
-
-    def append_violation_state(self, simgr, state):
-        simgr.stashes[ControlStateName.ViolationStashName].append(state)

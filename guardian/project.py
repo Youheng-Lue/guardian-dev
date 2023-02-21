@@ -36,7 +36,7 @@ class Project:
                  old_sdk=False,
                  teaclave=False,
                  find_missing_ecalls_or_ocalls=True,
-                 violation_check=True):
+                ):
         self.angr_project = angr_project
         self.heap_size = [
             lambda: Default().get_heap_size(), lambda: heap_size
@@ -72,6 +72,9 @@ class Project:
         self.entry_state.libc.max_memcpy_size = 0x100
         self.entry_state.libc.max_buffer_size = 0x100
         self.entry_state.enclave.init_trace_and_stack()
+        # Add options to allow symbolic memory and registers (angr complains otherwise)
+        self.entry_state.options.add(angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY)
+        self.entry_state.options.add(angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS)
 
         if not self.old_sdk:
             self.entry_state.regs.d = self.entry_state.solver.BVS(
@@ -82,9 +85,8 @@ class Project:
             self.angr_project, self.simgr, self.ecalls, self.ocalls,
             self.exit_addr, self.enter_addr, self.old_sdk)
         # Enable violation checks if flag is set
-        if violation_check:
-            self.angr_project, self.simgr = Breakpoints().setup(
-                self.angr_project, self.simgr, self.layout)
+        self.angr_project, self.simgr = Breakpoints().setup(
+            self.angr_project, self.simgr, self.layout)
         self.simgr.use_technique(EnclaveExploration())
 
     def use_heurestic_for_ecalls_or_ocalls(self):
