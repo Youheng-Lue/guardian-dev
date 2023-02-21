@@ -102,12 +102,12 @@ class RegisterEnteringValidation(GuardianSimProcedure):
         assert self.state.has_plugin("enclave")
         if self.violation_check:
             if self.state.enclave.control_state != ControlState.Entering:
-                violation = (ViolationType.Transition,
-                            ViolationType.Transition.to_msg(),
-                            self.state.enclave.control_state,
-                            "EnteringSanitisation")
-                self.state.enclave.set_violation(violation)
-                self.state.enclave.found_violation = True
+                    violation = (ViolationType.Transition,
+                                ViolationType.Transition.to_msg(),
+                                self.state.enclave.control_state,
+                                "EnteringSanitisation")
+                    self.state.enclave.set_violation(violation)
+                    self.state.enclave.found_violation = True
             else:
                 assert "no_sanitisation" in kwargs
                 if not kwargs["no_sanitisation"]:
@@ -115,9 +115,9 @@ class RegisterEnteringValidation(GuardianSimProcedure):
                     if violation is not None:
                         self.state.enclave.set_violation(violation)
                         self.state.enclave.found_violation = True
-            self.state.enclave.entry_sanitisation_complete = True
-            self.successors.add_successor(self.state, self.state.addr + 0,
-                                        self.state.solver.true, 'Ijk_NoHook')
+        self.state.enclave.entry_sanitisation_complete = True
+        self.successors.add_successor(self.state, self.state.addr + 0,
+                                    self.state.solver.true, 'Ijk_NoHook')
 
 
 class TransitionToTrusted(GuardianSimProcedure):
@@ -126,23 +126,24 @@ class TransitionToTrusted(GuardianSimProcedure):
     def run(self, **kwargs):
         log.debug("######### TRUSTED ###############")
         assert self.state.has_plugin("enclave")
-        if not (self.state.enclave.control_state == ControlState.Entering
-                or self.state.enclave.control_state == ControlState.Ocall):
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         self.state.enclave.control_state,
-                         ControlState.Trusted)
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
-        elif not self.state.enclave.entry_sanitisation_complete:
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         "Entering Trusted without entry sanitisation")
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
-        else:
-            self.state.enclave.ooe_rights = Rights.NoReadOrWrite
-            self.state.enclave.control_state = ControlState.Trusted
+        if self.violation_check:
+            if not (self.state.enclave.control_state == ControlState.Entering
+                    or self.state.enclave.control_state == ControlState.Ocall):
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            self.state.enclave.control_state,
+                            ControlState.Trusted)
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
+            elif not self.state.enclave.entry_sanitisation_complete:
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            "Entering Trusted without entry sanitisation")
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
+            else:
+                self.state.enclave.ooe_rights = Rights.NoReadOrWrite
+                self.state.enclave.control_state = ControlState.Trusted
         self.successors.add_successor(self.state, self.state.addr + 0,
                                       self.state.solver.true, 'Ijk_NoHook')
 
@@ -153,16 +154,17 @@ class TransitionToExiting(GuardianSimProcedure):
     def run(self, **kwargs):
         log.debug("######### EXITING ###############")
         assert self.state.has_plugin("enclave")
-        if self.state.enclave.control_state != ControlState.Trusted:
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         self.state.enclave.control_state,
-                         ControlState.Exiting)
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
-        else:
-            self.state.enclave.ooe_rights = Rights.Write
-            self.state.enclave.control_state = ControlState.Exiting
+        if self.violation_check:
+            if self.state.enclave.control_state != ControlState.Trusted:
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            self.state.enclave.control_state,
+                            ControlState.Exiting)
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
+            else:
+                self.state.enclave.ooe_rights = Rights.Write
+                self.state.enclave.control_state = ControlState.Exiting
         self.successors.add_successor(self.state, self.state.addr + 0,
                                       self.state.solver.true, 'Ijk_NoHook')
 
@@ -173,22 +175,23 @@ class TransitionToExited(GuardianSimProcedure):
     def run(self, **kwargs):
         log.debug("######### EXITED ###############")
         assert self.state.has_plugin("enclave")
-        if not (self.state.enclave.control_state == ControlState.Exiting
-                or self.state.enclave.control_state == ControlState.Entering):
-            violation = (ViolationType.Transition,
-                         ViolationType.Transition.to_msg(),
-                         self.state.enclave.control_state, ControlState.Exited)
-            self.state.enclave.set_violation(violation)
-            self.state.enclave.found_violation = True
-        else:
-            if self.state.enclave.control_state == ControlState.Exiting:
-                assert "no_sanitisation" in kwargs
-                if not kwargs["no_sanitisation"]:
-                    violation = Validation.exited(self.state)
-                    if violation is not None:
-                        self.state.enclave.set_violation(violation)
-                        self.state.enclave.found_violation = True
-            self.state.enclave.control_state = ControlState.Exited
+        if self.violation_check:
+            if not (self.state.enclave.control_state == ControlState.Exiting
+                    or self.state.enclave.control_state == ControlState.Entering):
+                violation = (ViolationType.Transition,
+                            ViolationType.Transition.to_msg(),
+                            self.state.enclave.control_state, ControlState.Exited)
+                self.state.enclave.set_violation(violation)
+                self.state.enclave.found_violation = True
+            else:
+                if self.state.enclave.control_state == ControlState.Exiting:
+                    assert "no_sanitisation" in kwargs
+                    if not kwargs["no_sanitisation"]:
+                        violation = Validation.exited(self.state)
+                        if violation is not None:
+                            self.state.enclave.set_violation(violation)
+                            self.state.enclave.found_violation = True
+                self.state.enclave.control_state = ControlState.Exited
         self.successors.add_successor(self.state, self.state.addr + 0,
                                       self.state.solver.true, 'Ijk_NoHook')
 
@@ -200,16 +203,16 @@ class TransitionToOcall(GuardianSimProcedure):
         log.debug("######### OCALL ###############")
         log.debug(hex(self.state.addr))
         assert self.state.has_plugin("enclave")
-        if self.state.enclave.control_state != ControlState.Trusted:
-            if self.violation_check:
+        if self.violation_check:
+            if self.state.enclave.control_state != ControlState.Trusted:
                 violation = (ViolationType.Transition,
                             ViolationType.Transition.to_msg(),
                             self.state.enclave.control_state, ControlState.Ocall)
                 self.state.enclave.set_violation(violation)
                 self.state.enclave.found_violation = True
-        else:
-            self.state.enclave.ooe_rights = Rights.ReadWrite
-            self.state.enclave.control_state = ControlState.Ocall
+            else:
+                self.state.enclave.ooe_rights = Rights.ReadWrite
+                self.state.enclave.control_state = ControlState.Ocall
         self.successors.add_successor(self.state, self.state.addr + 0,
                                       self.state.solver.true, 'Ijk_NoHook')
 
@@ -218,12 +221,13 @@ class OcallAbstraction(GuardianSimProcedure):
     def run(self, **kwargs):
         log.debug("######### OCALL ABSTRACTION ###############")
         assert self.state.has_plugin("enclave")
-        if self.state.enclave.control_state != ControlState.Ocall:
-                violation = (ViolationType.Transition,
-                            ViolationType.Transition.to_msg(),
-                            self.state.enclave.control_state, "OcallAbstraction")
-                self.state.enclave.set_violation(violation)
-                self.state.enclave.found_violation = True
+        if self.violation_check:
+            if self.state.enclave.control_state != ControlState.Ocall:
+                    violation = (ViolationType.Transition,
+                                ViolationType.Transition.to_msg(),
+                                self.state.enclave.control_state, "OcallAbstraction")
+                    self.state.enclave.set_violation(violation)
+                    self.state.enclave.found_violation = True
         return self.state.solver.Unconstrained("ocall_ret",
                                                self.state.arch.bits)
 

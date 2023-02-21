@@ -33,7 +33,8 @@ class Project:
               ecalls=None,
               ocalls=None,
               exit_addr=None,
-              enter_addr=None):
+              enter_addr=None,
+              violation_check=True):
         self.path = path
         self.proj = angr.Project(self.path)
         self.heap_size = heap_size
@@ -44,7 +45,7 @@ class Project:
         self.enter_addr = enter_addr
         self.guardian_proj = guardian.Project(
             self.proj, self.heap_size, self.stack_size, self.ecalls,
-            self.ocalls, self.exit_addr, self.enter_addr)
+            self.ocalls, self.exit_addr, self.enter_addr, violation_check=violation_check)
         self.guardian_proj.set_target_ecall(0x0)
         self.simgr = self.guardian_proj.simgr
         return self.proj, self.simgr
@@ -56,38 +57,51 @@ def setup():
 
 
 def test_all_violations(setup):
-    proj, simgr = setup("tests/all_violations/enclave.so")
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/all_violations/enclave.so", violation_check=violation_check)
+        simgr.explore()
 
-    assert Counter([simgr.violation[i].enclave.violation[0] for i in range(0, len(simgr.violation))]) \
-        == Counter([guardian.ViolationType.SymbolicRead, guardian.ViolationType.SymbolicWrite, guardian.ViolationType.SymbolicJump,
-                    guardian.ViolationType.OutOfEnclaveRead, guardian.ViolationType.OutOfEnclaveWrite, guardian.ViolationType.OutOfEnclaveJump])
+        if violation_check:
+            assert Counter([simgr.violation[i].enclave.violation[0] for i in range(0, len(simgr.violation))]) \
+                == Counter([guardian.ViolationType.SymbolicRead, guardian.ViolationType.SymbolicWrite, guardian.ViolationType.SymbolicJump,
+                            guardian.ViolationType.OutOfEnclaveRead, guardian.ViolationType.OutOfEnclaveWrite, guardian.ViolationType.OutOfEnclaveJump])
+        
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_entry_sanitisation(setup):
-    proj, simgr = setup("tests/entry_sanitisation/enclave.so")
-    proj.hook(
-        0x40685e, hook=guardian.simulation_procedures.Nop(bytes_to_skip=31))
-    proj.hook(
-        0x4068ac, hook=guardian.simulation_procedures.Nop(bytes_to_skip=18))
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/entry_sanitisation/enclave.so", violation_check=violation_check)
+        proj.hook(
+            0x40685e, hook=guardian.simulation_procedures.Nop(bytes_to_skip=31))
+        proj.hook(
+            0x4068ac, hook=guardian.simulation_procedures.Nop(bytes_to_skip=18))
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.EntrySanitisation
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.EntrySanitisation
 
-    assert simgr.violation[0].enclave.violation[2] == [
-        'rcx', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'ac', 'df'
-    ]
+            assert simgr.violation[0].enclave.violation[2] == [
+                'rcx', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'ac', 'df'
+            ]
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_exit_sanitisation(setup):
-    proj, simgr = setup("tests/exit_sanitisation/enclave.so")
-    proj.hook(
-        0x406924, hook=guardian.simulation_procedures.Nop(bytes_to_skip=34))
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/exit_sanitisation/enclave.so", violation_check=violation_check)
+        proj.hook(
+            0x406924, hook=guardian.simulation_procedures.Nop(bytes_to_skip=34))
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.ExitSanitisation
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.ExitSanitisation
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_good_case(setup):
@@ -98,68 +112,112 @@ def test_good_case(setup):
 
 
 def test_out_of_jump(setup):
-    proj, simgr = setup("tests/out_of_jump/enclave.so")
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/out_of_jump/enclave.so", violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.OutOfEnclaveJump
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.OutOfEnclaveJump
+        
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_out_of_read(setup):
-    proj, simgr = setup("tests/out_of_read/enclave.so")
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/out_of_read/enclave.so", violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.OutOfEnclaveRead
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.OutOfEnclaveRead
+        
+        else:
+            assert len(simgr.violation) == 0
+        
 
 
 def test_out_of_write(setup):
-    proj, simgr = setup("tests/out_of_write/enclave.so")
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/out_of_write/enclave.so", violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.OutOfEnclaveWrite
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.OutOfEnclaveWrite
 
-
-def test_symbolic_jump(setup):
-    proj, simgr = setup("tests/symbolic_jump/enclave.so")
-    simgr.explore()
-
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.SymbolicJump
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_symbolic_jump(setup):
-    proj, simgr = setup("tests/symbolic_read/enclave.so")
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/symbolic_jump/enclave.so", violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.SymbolicRead
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.SymbolicJump
+        
+        else:
+            assert len(simgr.violation) == 0
+    
+
+
+
+def test_symbolic_jump(setup):
+    for violation_check in [True, False]:
+        
+        proj, simgr = setup("tests/symbolic_read/enclave.so", violation_check=violation_check)
+        simgr.explore()
+
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.SymbolicRead
+        
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_symbolic_write(setup):
-    proj, simgr = setup("tests/symbolic_write/enclave.so")
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/symbolic_write/enclave.so", violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.SymbolicWrite
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.SymbolicWrite
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_transition(setup):
-    proj = angr.Project("tests/transition/enclave.so")
-    ecalls = [(ind, name, add, [(io[0][0], 0)])
-              for (ind, name, add,
-                   io) in guardian.tools.Heuristic.find_ecalls(proj)]
-    proj, simgr = setup("tests/transition/enclave.so", ecalls=ecalls)
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj = angr.Project("tests/transition/enclave.so")
+        ecalls = [(ind, name, add, [(io[0][0], 0)])
+                for (ind, name, add,
+                    io) in guardian.tools.Heuristic.find_ecalls(proj)]
+        proj, simgr = setup("tests/transition/enclave.so", ecalls=ecalls, violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.Transition
+        if violation_check:
+            assert simgr.violation[0].enclave.violation[
+                0] == guardian.ViolationType.Transition
+        
+        else:
+            assert len(simgr.violation) == 0
 
 
 def test_transition_two(setup):
-    proj, simgr = setup("tests/transition2/enclave.so", enter_addr=0x0)
-    simgr.explore()
+    for violation_check in [True, False]:
+        proj, simgr = setup("tests/transition2/enclave.so", enter_addr=0x0, violation_check=violation_check)
+        simgr.explore()
 
-    assert simgr.violation[0].enclave.violation[
-        0] == guardian.ViolationType.Transition
+    
+    if violation_check:
+        assert simgr.violation[0].enclave.violation[
+            0] == guardian.ViolationType.Transition
+
+    else:
+        assert len(simgr.violation) == 0
